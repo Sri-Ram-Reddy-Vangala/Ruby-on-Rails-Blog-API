@@ -1,0 +1,48 @@
+Add a basic token authentication method to app/controllers/application_controller.rb:
+class ApplicationController < ActionController::API
+  include ActionController::HttpAuthentication::Token::ControllerMethods
+
+  protected
+
+  def authenticate
+    authenticate_or_request_with_http_token do |token, options|
+      @current_user = User.find_by(token: token)
+    end
+  end
+end
+
+Update the PostsController (app/controllers/posts_controller.rb):
+class PostsController < ApplicationController
+  before_action :authenticate, only: [:create]
+
+  def index
+    posts = Post.all
+    render json: posts
+  end
+
+  def show
+    post = Post.find(params[:id])
+    render json: post
+  end
+
+  def create
+    post = @current_user.posts.new(post_params)
+    if post.save
+      render json: post, status: :created
+    else
+      render json: post.errors, status: :unprocessable_entity
+    end
+  end
+
+  private
+
+  def post_params
+    params.require(:post).permit(:title, :content)
+  end
+end
+
+Define routes in config/routes.rb:
+Rails.application.routes.draw do
+  resources :posts, only: [:index, :show, :create]
+end
+
